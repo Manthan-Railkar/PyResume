@@ -856,6 +856,10 @@
             background: linear-gradient(135deg, #ef4444, #dc2626);
         }
 
+        .notification.warning {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+
         /* Results Modal */
         .modal {
             position: fixed;
@@ -1478,7 +1482,7 @@ Responsibilities:
             }, 3000);
         }
 
-        // Simulate analysis process
+        // Integrated analyze resume function with Python backend
         function analyzeResume() {
             if (!uploadedFile || !jobDescription) {
                 showNotification('Please upload a resume and enter job description', 'error');
@@ -1494,22 +1498,78 @@ Responsibilities:
             btnText.style.display = 'none';
             loading.classList.add('active');
             
-            // Simulate API call
-            setTimeout(() => {
+            // Read the file as base64
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const fileData = {
+                    name: uploadedFile.name,
+                    type: uploadedFile.type,
+                    size: uploadedFile.size,
+                    content: e.target.result // base64 encoded content
+                };
+                
+                // Try to send data to Python backend first
+                try {
+                    // Check if pywebview API is available
+                    if (typeof pywebview !== 'undefined' && pywebview.api) {
+                        // Call the Python API to save the file and job description
+                        pywebview.api.analyzeResume(fileData, jobDescription)
+                            .then(response => {
+                                const result = JSON.parse(response);
+                                
+                                // Hide loading state
+                                btnText.style.display = 'block';
+                                loading.classList.remove('active');
+                                analyzeBtn.disabled = false;
+                                
+                                if (result.status === 'success') {
+                                    // Show results from Python backend
+                                    showResults(result.data);
+                                    showNotification('✓ Analysis completed successfully!', 'success');
+                                } else {
+                                    showNotification('Error: ' + result.message, 'error');
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Python API Error:', error);
+                                handleApiError();
+                            });
+                    } else {
+                        // pywebview not available, use fallback
+                        handleApiError();
+                    }
+                } catch (error) {
+                    console.error('Error calling Python API:', error);
+                    handleApiError();
+                }
+                
+                // Fallback function for when Python API is not available
+                function handleApiError() {
+                    // Hide loading state
+                    btnText.style.display = 'block';
+                    loading.classList.remove('active');
+                    analyzeBtn.disabled = false;
+                    
+                    // Show mock results as fallback
+                    const results = generateMockResults();
+                    showResults(results);
+                    showNotification('Using demo results (Python backend not connected)', 'warning');
+                }
+            };
+            
+            reader.onerror = function() {
                 // Hide loading state
                 btnText.style.display = 'block';
                 loading.classList.remove('active');
                 analyzeBtn.disabled = false;
                 
-                // Generate mock results
-                const results = generateMockResults();
-                showResults(results);
-                
-                showNotification('✓ Analysis completed successfully!', 'success');
-            }, 3000);
+                showNotification('Error reading file', 'error');
+            };
+            
+            reader.readAsDataURL(uploadedFile);
         }
 
-        // Generate mock analysis results
+        // Generate mock analysis results for fallback
         function generateMockResults() {
             const skills = ['Python', 'Django', 'PostgreSQL', 'Docker', 'AWS', 'Git', 'REST APIs'];
             const matchedSkills = skills.slice(0, Math.floor(Math.random() * 3) + 4);

@@ -8,21 +8,95 @@ from pathlib import Path
 import pygame
 import threading
 import time
+import shutil
 
 class PyResumeAPI:
     def __init__(self):
         self.analysis_results = None
+        self.job_description = ""  # Store job description as string
+        self.uploaded_files = []   # Track uploaded files
+        self.saved_file_path = ""  # Store the path of the saved file
+    
+    def save_uploaded_file(self, file_data):
+        """
+        Save the uploaded file to the same directory as the Python script
+        """
+        try:
+            # Extract file data
+            file_name = file_data.get('name', 'uploaded_file')
+            file_content = file_data.get('content', '')  # Base64 encoded content
+            
+            # Decode base64 content
+            if file_content.startswith('data:'):
+                # Remove data URL prefix if present
+                file_content = file_content.split(',', 1)[1]
+            
+            file_bytes = base64.b64decode(file_content)
+            
+            # Get the directory where pyresume_app.py is located
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            file_path = os.path.join(script_dir, file_name)
+            
+            # Ensure we don't overwrite existing files
+            counter = 1
+            name, ext = os.path.splitext(file_name)
+            while os.path.exists(file_path):
+                file_name = f"{name}_{counter}{ext}"
+                file_path = os.path.join(script_dir, file_name)
+                counter += 1
+            
+            # Save the file
+            with open(file_path, 'wb') as f:
+                f.write(file_bytes)
+            
+            # Store the file path
+            self.uploaded_files.append(file_path)
+            self.saved_file_path = file_path  # Store the path for further use
+            
+            return json.dumps({'status': 'success', 'message': f'File saved as {file_name}', 'path': file_path})
+            
+        except Exception as e:
+            return json.dumps({'status': 'error', 'message': f'Error saving file: {str(e)}'})
+    
+    def set_job_description(self, job_desc):
+        """
+        Store the job description as a string
+        """
+        try:
+            self.job_description = job_desc
+            return json.dumps({'status': 'success', 'message': 'Job description saved'})
+        except Exception as e:
+            return json.dumps({'status': 'error', 'message': f'Error saving job description: {str(e)}'})
+    
+    def get_job_description(self):
+        """
+        Retrieve the stored job description
+        """
+        return json.dumps({'status': 'success', 'data': self.job_description})
     
     def analyze_resume(self, file_data, job_description):
         """
         This method will be called from JavaScript to analyze the resume
         """
         try:
+            # First save the uploaded file
+            file_result = json.loads(self.save_uploaded_file(file_data))
+            if file_result['status'] == 'error':
+                return json.dumps({'status': 'error', 'message': file_result['message']})
+            
+            # Save the job description
+            job_result = json.loads(self.set_job_description(job_description))
+            if job_result['status'] == 'error':
+                return json.dumps({'status': 'error', 'message': job_result['message']})
+            
+            # Print the stored information for verification
+            print(f"File saved at: {self.saved_file_path}")
+            print(f"Job description stored: {len(self.job_description)} characters")
+            
             # Here you would implement your actual resume analysis logic
             # For now, we'll return mock data similar to your JavaScript function
             
             # Simulate processing time
-            import time
             time.sleep(2)
             
             # Generate mock results (replace with your actual analysis)
@@ -41,7 +115,9 @@ class PyResumeAPI:
                     'Strong technical background in Python development',
                     'Good match for senior-level positions',
                     'Consider additional cloud training for AWS'
-                ]
+                ],
+                'savedFilePath': self.saved_file_path,
+                'jobDescription': self.job_description
             }
             
             self.analysis_results = result
@@ -58,6 +134,7 @@ class PyResumeAPI:
             return json.dumps({'status': 'success', 'data': self.analysis_results})
         return json.dumps({'status': 'error', 'message': 'No analysis results available'})
 
+# The rest of your Python code remains the same...
 def play_background_music():
     """
     Play background music in a loop until the application closes
@@ -69,9 +146,13 @@ def play_background_music():
         # Try to load the music file (you'll need to provide this file)
         music_file = "background_music.mp3"
         
+        # Get the directory where pyresume_app.py is located
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        music_path = os.path.join(script_dir, music_file)
+        
         # Check if music file exists
-        if os.path.exists(music_file):
-            pygame.mixer.music.load(music_file)
+        if os.path.exists(music_path):
+            pygame.mixer.music.load(music_path)
             pygame.mixer.music.play(-1)  # -1 means loop indefinitely
             
             print("Background music started...")
@@ -89,7 +170,7 @@ def load_html_content():
     """
     Load the HTML content from the index.html file
     """
-    # Get the directory where the script is located
+    # Get the directory where pyresume_app.py is located
     script_dir = os.path.dirname(os.path.abspath(__file__))
     html_file = os.path.join(script_dir, 'index.html')
     

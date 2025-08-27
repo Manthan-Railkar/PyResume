@@ -9,6 +9,7 @@ import pygame
 import threading
 import time
 import shutil
+import mimetypes
 
 class PyResumeAPI:
     def __init__(self):
@@ -17,64 +18,217 @@ class PyResumeAPI:
         self.uploaded_files = []   # Track uploaded files
         self.saved_file_path = ""  # Store the path of the saved file
         self.script_dir = os.path.dirname(os.path.abspath(__file__))  # Directory where script is located
+        
+        # Create uploads folder in script directory
+        self.uploads_dir = os.path.join(self.script_dir, "uploads")
+        if not os.path.exists(self.uploads_dir):
+            try:
+                os.makedirs(self.uploads_dir)
+                print(f"📁 Created uploads directory: {self.uploads_dir}")
+            except Exception as e:
+                print(f"⚠️  Could not create uploads directory: {e}")
+                self.uploads_dir = self.script_dir  # Fall back to script directory
+        
+        # Ensure the directory is writable
+        print(f"📁 Script directory: {self.script_dir}")
+        print(f"📁 Uploads directory: {self.uploads_dir}")
+        print(f"📁 Directory writable: {os.access(self.uploads_dir, os.W_OK)}")
     
     def save_uploaded_file(self, file_data):
-        """
-        Save the uploaded file to the same directory as the Python script
-        """
-        try:
-            # Extract file data
-            file_name = file_data.get('name', 'uploaded_file')
-            file_content = file_data.get('content', '')  # Base64 encoded content
-            
-            # Decode base64 content
-            if file_content.startswith('data:'):
-                # Remove data URL prefix if present
-                file_content = file_content.split(',', 1)[1]
-            
-            file_bytes = base64.b64decode(file_content)
-            
-            # Create file path in the same directory as script
-            file_path = os.path.join(self.script_dir, file_name)
-            
-            # Ensure we don't overwrite existing files
-            counter = 1
-            name, ext = os.path.splitext(file_name)
-            while os.path.exists(file_path):
-                file_name = f"{name}_{counter}{ext}"
-                file_path = os.path.join(self.script_dir, file_name)
-                counter += 1
-            
-            # Save the file
-            with open(file_path, 'wb') as f:
-                f.write(file_bytes)
-            
-            # Store the file path and add to tracking list
-            self.uploaded_files.append(file_path)
-            self.saved_file_path = file_path
-            
-            print(f"✓ File saved successfully: {file_path}")
-            print(f"✓ File size: {len(file_bytes)} bytes")
-            
-            return json.dumps({
-                'status': 'success', 
-                'message': f'File saved as {file_name}', 
-                'path': file_path,
-                'size': len(file_bytes)
-            })
-            
-        except Exception as e:
-            error_msg = f'Error saving file: {str(e)}'
-            print(f"✗ {error_msg}")
-            return json.dumps({'status': 'error', 'message': error_msg})
+      """
+      Save the uploaded file to the uploads directory - FIXED VERSION
+      """
+      try:
+          print("\n" + "="*50)
+          print("📄 STARTING FILE SAVE PROCESS")
+          print("="*50)
+          
+          # Extract and validate file data
+          if not file_data:
+              print("❌ No file data provided")
+              return json.dumps({'status': 'error', 'message': 'No file data provided'})
+          
+          print(f"📄 Received file_data keys: {list(file_data.keys())}")
+          
+          file_name = file_data.get('name', 'uploaded_file.pdf')
+          file_content = file_data.get('content', '')
+          file_type = file_data.get('type', 'application/pdf')
+          file_size = file_data.get('size', 0)
+          
+          print(f"📄 Original filename: {file_name}")
+          print(f"📄 File type: {file_type}")
+          print(f"📄 Original size: {file_size} bytes")
+          print(f"📄 Content length: {len(file_content)} characters")
+          print(f"📄 Content starts with: {file_content[:100]}...")
+          
+          if not file_content:
+              print("❌ File content is empty")
+              return json.dumps({'status': 'error', 'message': 'File content is empty'})
+          
+          # Handle base64 content - IMPROVED LOGIC
+          if file_content.startswith('data:'):
+              # Split data URL to get the base64 part
+              try:
+                  if ',' not in file_content:
+                      print("❌ Invalid data URL format - no comma separator")
+                      return json.dumps({'status': 'error', 'message': 'Invalid data URL format - no comma separator'})
+                  
+                  header_part, base64_part = file_content.split(',', 1)
+                  print(f"📄 Data URL header: {header_part}")
+                  print(f"📄 Base64 content length: {len(base64_part)} characters")
+                  print(f"📄 Base64 starts with: {base64_part[:50]}...")
+                  
+                  if len(base64_part) == 0:
+                      print("❌ Base64 part is empty")
+                      return json.dumps({'status': 'error', 'message': 'Base64 content is empty'})
+                      
+              except ValueError as ve:
+                  print(f"❌ Error splitting data URL: {ve}")
+                  return json.dumps({'status': 'error', 'message': f'Invalid data URL format: {str(ve)}'})
+          else:
+              base64_part = file_content
+              print(f"📄 Direct base64 content length: {len(base64_part)} characters")
+          
+          # Clean and validate base64 content
+          base64_part = base64_part.strip()
+          if len(base64_part) == 0:
+              print("❌ Base64 part is empty after stripping")
+              return json.dumps({'status': 'error', 'message': 'Base64 content is empty'})
+          
+          # Decode the base64 content - IMPROVED ERROR HANDLING
+          try:
+              # Remove any whitespace and newlines
+              base64_part = ''.join(base64_part.split())
+              
+              # Add padding if needed (base64 strings must be multiple of 4)
+              missing_padding = len(base64_part) % 4
+              if missing_padding:
+                  base64_part += '=' * (4 - missing_padding)
+                  print(f"📄 Added {4 - missing_padding} padding characters")
+              
+              print(f"📄 Final base64 length: {len(base64_part)}")
+              print(f"📄 Attempting to decode base64...")
+              
+              file_bytes = base64.b64decode(base64_part, validate=True)
+              print(f"📄 Decoded file size: {len(file_bytes)} bytes")
+              
+              if len(file_bytes) == 0:
+                  print("❌ Decoded file is empty")
+                  return json.dumps({'status': 'error', 'message': 'Decoded file is empty'})
+                  
+              # Validate file content by checking file signature
+              if file_name.lower().endswith('.pdf') and not file_bytes.startswith(b'%PDF'):
+                  print("⚠️  Warning: PDF file doesn't start with PDF signature")
+              
+          except base64.binascii.Error as decode_error:
+              print(f"❌ Base64 decode error (binascii): {decode_error}")
+              return json.dumps({'status': 'error', 'message': f'Invalid base64 content: {str(decode_error)}'})
+          except Exception as decode_error:
+              print(f"❌ Base64 decode error (general): {decode_error}")
+              return json.dumps({'status': 'error', 'message': f'Failed to decode file content: {str(decode_error)}'})
+          
+          # Sanitize filename - remove problematic characters
+          import re
+          safe_name = re.sub(r'[<>:"/\\|?*]', '_', file_name)
+          if safe_name != file_name:
+              print(f"📄 Sanitized filename: {file_name} -> {safe_name}")
+              file_name = safe_name
+          
+          # Create unique file path to avoid overwrites
+          file_path = os.path.join(self.uploads_dir, file_name)
+          counter = 1
+          original_name = file_name
+          name, ext = os.path.splitext(file_name)
+          
+          while os.path.exists(file_path):
+              file_name = f"{name}_{counter}{ext}"
+              file_path = os.path.join(self.uploads_dir, file_name)
+              counter += 1
+              print(f"📄 File exists, trying: {file_name}")
+          
+          print(f"📄 Final file path: {file_path}")
+          print(f"📄 Directory exists: {os.path.exists(self.uploads_dir)}")
+          print(f"📄 Directory writable: {os.access(self.uploads_dir, os.W_OK)}")
+          
+          # Write the file with error handling
+          try:
+              print(f"📄 Writing {len(file_bytes)} bytes to disk...")
+              with open(file_path, 'wb') as f:
+                  bytes_written = f.write(file_bytes)
+                  f.flush()  # Force write to disk
+                  os.fsync(f.fileno())  # Force OS to write to disk
+              
+              print(f"📄 File write completed, {bytes_written} bytes written")
+              
+          except PermissionError as pe:
+              print(f"❌ Permission denied: {pe}")
+              return json.dumps({'status': 'error', 'message': f'Permission denied writing to {file_path}'})
+          except OSError as os_error:
+              print(f"❌ OS error: {os_error}")
+              return json.dumps({'status': 'error', 'message': f'OS error writing file: {str(os_error)}'})
+          except Exception as write_error:
+              print(f"❌ File write error: {write_error}")
+              return json.dumps({'status': 'error', 'message': f'Failed to write file: {str(write_error)}'})
+          
+          # Verify the file was actually created and has correct size
+          if os.path.exists(file_path):
+              actual_size = os.path.getsize(file_path)
+              is_readable = os.access(file_path, os.R_OK)
+              
+              print("✅ FILE SAVE SUCCESS:")
+              print(f"   - Path: {file_path}")
+              print(f"   - Size: {actual_size} bytes")
+              print(f"   - Expected: {len(file_bytes)} bytes")
+              print(f"   - Readable: {is_readable}")
+              print(f"   - Size match: {actual_size == len(file_bytes)}")
+              
+              if actual_size != len(file_bytes):
+                  print(f"⚠️  SIZE MISMATCH! Expected: {len(file_bytes)}, Actual: {actual_size}")
+                  return json.dumps({'status': 'error', 'message': f'File size mismatch. Expected: {len(file_bytes)}, Actual: {actual_size}'})
+              
+              # Store the file path and add to tracking list
+              self.uploaded_files.append(file_path)
+              self.saved_file_path = file_path
+              
+              # Also create a relative path for display
+              rel_path = os.path.relpath(file_path, self.script_dir)
+              
+              return json.dumps({
+                  'status': 'success', 
+                  'message': f'File saved successfully as {file_name}', 
+                  'path': file_path,
+                  'relative_path': rel_path,
+                  'size': actual_size,
+                  'original_name': original_name,
+                  'readable': is_readable,
+                  'bytes_written': len(file_bytes)
+              })
+          else:
+              print("❌ File verification failed - file does not exist after write")
+              return json.dumps({'status': 'error', 'message': 'File was not created successfully - file does not exist after write operation'})
+              
+      except Exception as e:
+          error_msg = f'Unexpected error saving file: {str(e)}'
+          print(f"❌ {error_msg}")
+          import traceback
+          print("Full traceback:")
+          traceback.print_exc()
+          return json.dumps({'status': 'error', 'message': error_msg})
+      finally:
+          print("="*50)
+          print("📄 FILE SAVE PROCESS COMPLETED")
+          print("="*50 + "\n")
     
     def set_job_description(self, job_desc):
         """
         Store the job description as a string
         """
         try:
-            self.job_description = job_desc.strip()
-            print(f"✓ Job description stored: {len(self.job_description)} characters")
+            self.job_description = str(job_desc).strip() if job_desc else ""
+            print(f"✅ Job description stored: {len(self.job_description)} characters")
+            if len(self.job_description) > 0:
+                preview = self.job_description[:100] + "..." if len(self.job_description) > 100 else self.job_description
+                print(f"✅ Preview: {preview}")
             return json.dumps({
                 'status': 'success', 
                 'message': 'Job description saved',
@@ -82,7 +236,7 @@ class PyResumeAPI:
             })
         except Exception as e:
             error_msg = f'Error saving job description: {str(e)}'
-            print(f"✗ {error_msg}")
+            print(f"❌ {error_msg}")
             return json.dumps({'status': 'error', 'message': error_msg})
     
     def get_job_description(self):
@@ -105,74 +259,118 @@ class PyResumeAPI:
             'exists': os.path.exists(self.saved_file_path) if self.saved_file_path else False
         })
     
+    def list_directory_files(self):
+        """
+        List all files in the uploads directory for debugging
+        """
+        try:
+            files = []
+            directories_to_check = [self.uploads_dir, self.script_dir]
+            
+            result = {'directories': {}}
+            
+            for directory in directories_to_check:
+                dir_files = []
+                if os.path.exists(directory):
+                    for item in os.listdir(directory):
+                        item_path = os.path.join(directory, item)
+                        if os.path.isfile(item_path):
+                            dir_files.append({
+                                'name': item,
+                                'size': os.path.getsize(item_path),
+                                'path': item_path,
+                                'modified': time.ctime(os.path.getmtime(item_path))
+                            })
+                
+                result['directories'][directory] = {
+                    'exists': os.path.exists(directory),
+                    'files': dir_files,
+                    'count': len(dir_files)
+                }
+            
+            return json.dumps({
+                'status': 'success',
+                'data': result
+            })
+        except Exception as e:
+            return json.dumps({'status': 'error', 'message': str(e)})
+    
     def analyze_resume(self, file_data, job_description):
         """
         This method will be called from JavaScript to analyze the resume.
         It saves the file, stores the job description, and performs analysis.
         """
         try:
-            print("=" * 60)
+            print("\n" + "="*60)
             print("🐍 PyResume AI - Starting Analysis")
-            print("=" * 60)
+            print("="*60)
+            
+            # Print received data info
+            print("📥 Received data:")
+            print(f"   - File data keys: {list(file_data.keys()) if file_data else 'None'}")
+            print(f"   - Job description length: {len(job_description) if job_description else 0}")
             
             # First save the uploaded file
-            print("📄 Saving uploaded file...")
+            print("\n📄 Step 1: Saving uploaded file...")
             file_result = json.loads(self.save_uploaded_file(file_data))
             if file_result['status'] == 'error':
-                return json.dumps({'status': 'error', 'message': file_result['message']})
+                print(f"❌ File save failed: {file_result['message']}")
+                return json.dumps({'status': 'error', 'message': f"File save failed: {file_result['message']}"})
+            else:
+                print(f"✅ File saved successfully: {file_result.get('path', 'Unknown path')}")
             
             # Save the job description
-            print("💼 Storing job description...")
+            print("\n💼 Step 2: Storing job description...")
             job_result = json.loads(self.set_job_description(job_description))
             if job_result['status'] == 'error':
-                return json.dumps({'status': 'error', 'message': job_result['message']})
+                print(f"❌ Job description save failed: {job_result['message']}")
+                return json.dumps({'status': 'error', 'message': f"Job description save failed: {job_result['message']}"})
+            else:
+                print(f"✅ Job description saved: {job_result.get('length', 0)} characters")
             
-            # Print the stored information for verification
-            print(f"✓ File saved at: {self.saved_file_path}")
-            print(f"✓ File exists: {os.path.exists(self.saved_file_path)}")
-            print(f"✓ Job description length: {len(self.job_description)} characters")
-            print(f"✓ Job description preview: {self.job_description[:100]}..." if len(self.job_description) > 100 else f"✓ Job description: {self.job_description}")
+            # List directory contents for verification
+            print("\n📁 Step 3: Verifying file system...")
+            dir_result = json.loads(self.list_directory_files())
+            if dir_result['status'] == 'success':
+                for directory, info in dir_result['data']['directories'].items():
+                    print(f"📁 {directory}: {info['count']} files")
+                    for file_info in info['files']:
+                        print(f"   - {file_info['name']} ({file_info['size']} bytes)")
             
-            print("\n🔍 Starting resume analysis...")
+            print(f"\n✅ Current saved file: {self.saved_file_path}")
+            print(f"✅ File exists: {os.path.exists(self.saved_file_path) if self.saved_file_path else False}")
             
-            # Simulate processing time for realistic experience
-            time.sleep(1.5)
+            # Simulate processing time
+            print("\n🔍 Step 4: Processing analysis...")
+            time.sleep(1.0)
             
-            # Here you would implement your actual resume analysis logic
-            # For now, we'll return enhanced mock data with the actual file info
-            
-            # Extract file information
+            # Generate analysis results
             file_info = {
-                'name': file_data.get('name', 'resume.pdf'),
-                'size': file_data.get('size', 0),
-                'type': file_data.get('type', 'application/pdf')
+                'name': file_data.get('name', 'resume.pdf') if file_data else 'resume.pdf',
+                'size': file_data.get('size', 0) if file_data else 0,
+                'type': file_data.get('type', 'application/pdf') if file_data else 'application/pdf'
             }
             
-            # Generate analysis results based on job description keywords
             analysis_result = self._perform_analysis(file_info, self.job_description)
-            
-            # Store results
             self.analysis_results = analysis_result
             
-            print("✓ Analysis completed successfully!")
-            print(f"✓ Overall match score: {analysis_result['overallScore']}%")
-            print(f"✓ Matched skills: {len(analysis_result['matchedSkills'])}")
-            print(f"✓ Missing skills: {len(analysis_result['missingSkills'])}")
-            print("=" * 60)
+            print("✅ Analysis completed successfully!")
+            print("="*60 + "\n")
             
             return json.dumps({'status': 'success', 'data': analysis_result})
             
         except Exception as e:
             error_msg = str(e)
-            print(f"✗ Error during analysis: {error_msg}")
+            print(f"❌ Error during analysis: {error_msg}")
+            import traceback
+            traceback.print_exc()
             return json.dumps({'status': 'error', 'message': error_msg})
     
     def _perform_analysis(self, file_info, job_desc):
         """
         Perform the actual resume analysis logic.
-        This is where you would implement your AI/ML algorithms.
         """
-        # Keywords to look for in job description (you can expand this)
+        # Keywords to look for in job description
         skill_keywords = {
             'Python': ['python', 'py', 'django', 'flask', 'fastapi'],
             'JavaScript': ['javascript', 'js', 'node', 'react', 'vue', 'angular'],
@@ -186,7 +384,7 @@ class PyResumeAPI:
             'REST API': ['rest', 'api', 'restful', 'web service'],
         }
         
-        job_desc_lower = job_desc.lower()
+        job_desc_lower = job_desc.lower() if job_desc else ""
         
         # Find skills mentioned in job description
         required_skills = []
@@ -198,12 +396,10 @@ class PyResumeAPI:
         import random
         random.seed(42)  # For consistent results
         
-        # Simulate which skills the candidate has
         matched_skills = []
         missing_skills = []
         
         for skill in required_skills:
-            # 70% chance of having each required skill
             if random.random() > 0.3:
                 matched_skills.append(skill)
             else:
@@ -213,11 +409,10 @@ class PyResumeAPI:
         if required_skills:
             score = int((len(matched_skills) / len(required_skills)) * 100)
         else:
-            score = 75  # Default score if no specific skills identified
+            score = 75
         
-        # Add some randomness to make it more realistic
         score += random.randint(-10, 15)
-        score = max(0, min(100, score))  # Ensure score is between 0-100
+        score = max(0, min(100, score))
         
         # Generate recommendations
         recommendations = []
@@ -246,6 +441,8 @@ class PyResumeAPI:
             'education': 'Bachelor\'s in Computer Science',
             'recommendations': recommendations,
             'savedFilePath': self.saved_file_path,
+            'savedFileExists': os.path.exists(self.saved_file_path) if self.saved_file_path else False,
+            'uploadsDirectory': self.uploads_dir,
             'jobDescriptionLength': len(self.job_description),
             'analysisTimestamp': time.strftime('%Y-%m-%d %H:%M:%S')
         }
@@ -260,7 +457,7 @@ class PyResumeAPI:
     
     def cleanup_files(self):
         """
-        Clean up uploaded files (optional, call when needed)
+        Clean up uploaded files
         """
         try:
             cleaned_files = []
@@ -285,24 +482,16 @@ def play_background_music():
     Play background music in a loop until the application closes
     """
     try:
-        # Initialize pygame mixer
         pygame.mixer.init()
-        
-        # Try to load the music file (you'll need to provide this file)
         music_file = "background_music.mp3"
-        
-        # Get the directory where pyresume_app.py is located
         script_dir = os.path.dirname(os.path.abspath(__file__))
         music_path = os.path.join(script_dir, music_file)
         
-        # Check if music file exists
         if os.path.exists(music_path):
             pygame.mixer.music.load(music_path)
-            pygame.mixer.music.play(-1)  # -1 means loop indefinitely
-            
+            pygame.mixer.music.play(-1)
             print("🎵 Background music started...")
             
-            # Keep the thread alive while music is playing
             while pygame.mixer.music.get_busy():
                 time.sleep(1)
         else:
@@ -315,17 +504,14 @@ def load_html_content():
     """
     Load the HTML content from the index.html file
     """
-    # Get the directory where pyresume_app.py is located
     script_dir = os.path.dirname(os.path.abspath(__file__))
     html_file = os.path.join(script_dir, 'index.html')
     
-    # Check if index.html exists in the same directory
     if os.path.exists(html_file):
         print(f"📄 Loading HTML from: {html_file}")
         with open(html_file, 'r', encoding='utf-8') as f:
             return f.read()
     
-    # If index.html doesn't exist, create a temporary one
     print("⚠️  index.html not found, creating fallback HTML")
     return create_fallback_html()
 
@@ -372,7 +558,6 @@ def create_temp_html(html_content):
     """
     Create a temporary HTML file with the provided content
     """
-    # Create a temporary directory
     temp_dir = tempfile.mkdtemp()
     html_file = os.path.join(temp_dir, 'index.html')
     
@@ -389,13 +574,15 @@ if __name__ == '__main__':
     # Get script directory for reference
     script_dir = os.path.dirname(os.path.abspath(__file__))
     print(f"📁 Script directory: {script_dir}")
+    print(f"📁 Directory exists: {os.path.exists(script_dir)}")
+    print(f"📁 Directory writable: {os.access(script_dir, os.W_OK)}")
     
     # Load HTML content
     html_content = load_html_content()
     
     # Create API instance
     api = PyResumeAPI()
-    print("✓ PyResume API initialized")
+    print("✅ PyResume API initialized")
     
     # Create temporary HTML file
     html_file = create_temp_html(html_content)
@@ -418,26 +605,26 @@ if __name__ == '__main__':
     
     print("📋 Instructions:")
     print("   1. Upload a resume (PDF or DOC)")
-    print("   2. Enter job description (minimum 50 characters)")
+    print("   2. Enter job description (minimum 1 character)")
     print("   3. Click 'Analyze with PyResume AI'")
-    print("   4. Files will be saved in:", script_dir)
-    print("   5. Close the window to exit")
+    print("   4. Files will be saved in: uploads/ subdirectory")
+    print("   5. Check console for detailed debugging info")
+    print("   6. Close the window to exit")
     print("=" * 60)
     
     try:
-        # Start the application
         webview.start(debug=False)
     except KeyboardInterrupt:
         print("\n🛑 Application interrupted by user")
     except Exception as e:
         print(f"\n💥 Error starting application: {e}")
+        import traceback
+        traceback.print_exc()
     finally:
-        # Stop music when application closes
         if pygame.mixer.get_init():
             pygame.mixer.music.stop()
             pygame.mixer.quit()
         print("🎵 Background music stopped")
         print("👋 PyResume AI Application closed")
         
-        # Optionally clean up files on exit
-        # api.cleanup_files()  # Uncomment if you want to auto-cleanup
+        # api.cleanup_files()  # Uncomment to auto-cleanup

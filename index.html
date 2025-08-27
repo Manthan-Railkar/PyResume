@@ -1315,385 +1315,539 @@ Responsibilities:
 
     <script>
         // Global variables
-        let uploadedFile = null;
-        let jobDescription = '';
+let uploadedFile = null;
+let jobDescription = '';
 
-        // Theme toggle functionality
-        function toggleTheme() {
-            const body = document.body;
-            const themeIcon = document.getElementById('theme-icon');
-            const themeText = document.getElementById('theme-text');
-            
-            if (body.getAttribute('data-theme') === 'light') {
-                body.setAttribute('data-theme', 'dark');
-                themeIcon.textContent = '☀️';
-                themeText.textContent = 'Light Mode';
-            } else {
-                body.setAttribute('data-theme', 'light');
-                themeIcon.textContent = '🌙';
-                themeText.textContent = 'Dark Mode';
-            }
+// Theme toggle functionality
+function toggleTheme() {
+    const body = document.body;
+    const themeIcon = document.getElementById('theme-icon');
+    const themeText = document.getElementById('theme-text');
+    
+    if (body.getAttribute('data-theme') === 'light') {
+        body.setAttribute('data-theme', 'dark');
+        themeIcon.textContent = '☀️';
+        themeText.textContent = 'Light Mode';
+    } else {
+        body.setAttribute('data-theme', 'light');
+        themeIcon.textContent = '🌙';
+        themeText.textContent = 'Dark Mode';
+    }
+}
+
+// Load saved theme on page load
+function loadTheme() {
+    const savedTheme = 'light';
+    const body = document.body;
+    const themeIcon = document.getElementById('theme-icon');
+    const themeText = document.getElementById('theme-text');
+    
+    body.setAttribute('data-theme', savedTheme);
+    
+    if (savedTheme === 'dark') {
+        themeIcon.textContent = '☀️';
+        themeText.textContent = 'Light Mode';
+    } else {
+        themeIcon.textContent = '🌙';
+        themeText.textContent = 'Dark Mode';
+    }
+}
+
+// File upload handling
+function handleFileUpload(input) {
+    const file = input.files[0];
+    if (file) {
+        // Validate file type
+        const allowedTypes = [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        ];
+        
+        if (!allowedTypes.includes(file.type)) {
+            showNotification('Please upload a PDF or DOC/DOCX file', 'error');
+            input.value = '';
+            return;
         }
-
-        // Load saved theme on page load
-        function loadTheme() {
-            const savedTheme = 'light';
-            const body = document.body;
-            const themeIcon = document.getElementById('theme-icon');
-            const themeText = document.getElementById('theme-text');
-            
-            body.setAttribute('data-theme', savedTheme);
-            
-            if (savedTheme === 'dark') {
-                themeIcon.textContent = '☀️';
-                themeText.textContent = 'Light Mode';
-            } else {
-                themeIcon.textContent = '🌙';
-                themeText.textContent = 'Dark Mode';
-            }
+        
+        // Validate file size (max 10MB)
+        const maxSize = 10 * 1024 * 1024; // 10MB
+        if (file.size > maxSize) {
+            showNotification('File size must be less than 10MB', 'error');
+            input.value = '';
+            return;
         }
+        
+        uploadedFile = file;
+        const uploadArea = input.parentElement;
+        const uploadTitle = uploadArea.querySelector('.upload-title');
+        const uploadDesc = uploadArea.querySelector('.upload-desc');
+        
+        uploadArea.classList.add('file-uploaded');
+        uploadTitle.textContent = '✓ Resume Uploaded';
+        uploadDesc.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+        
+        showNotification(`✓ ${file.name} uploaded successfully!`, 'success');
+        checkFormValidity();
+    }
+}
 
-        // File upload handling
-        function handleFileUpload(input) {
-            const file = input.files[0];
-            if (file) {
-                uploadedFile = file;
-                const uploadArea = input.parentElement;
-                const uploadTitle = uploadArea.querySelector('.upload-title');
-                const uploadDesc = uploadArea.querySelector('.upload-desc');
-                
-                uploadArea.classList.add('file-uploaded');
-                uploadTitle.textContent = '✓ Resume Uploaded';
-                uploadDesc.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
-                
-                showNotification(`✓ ${file.name} uploaded successfully!`, 'success');
-                checkFormValidity();
-            }
+// Enhanced job description input handling
+function handleTextInput(textarea) {
+    jobDescription = textarea.value.trim();
+    const charCount = textarea.value.length;
+    const charCountElement = document.getElementById('char-count');
+    const charCountContainer = charCountElement.parentElement;
+    const statusIndicator = document.getElementById('status-indicator');
+    const statusIcon = statusIndicator.querySelector('.status-icon');
+    const statusText = statusIndicator.querySelector('.status-text');
+
+    // Update character count
+    charCountElement.textContent = charCount.toLocaleString();
+    
+    // Update character count styling
+    charCountContainer.className = 'char-counter';
+    if (charCount > 5000) {
+        charCountContainer.classList.add('error');
+    } else if (charCount > 3000) {
+        charCountContainer.classList.add('warning');
+    }
+
+    // Update textarea styling and status
+    textarea.className = 'job-textarea';
+    statusIndicator.className = 'status-indicator';
+    
+    if (charCount === 0) {
+        statusIcon.textContent = '📝';
+        statusText.textContent = 'Ready for input';
+    } else if (charCount < 50) {
+        textarea.classList.add('has-content');
+        statusIndicator.classList.add('typing');
+        statusIcon.textContent = '✏️';
+        statusText.textContent = 'Keep typing...';
+    } else {
+        textarea.classList.add('has-content');
+        statusIndicator.classList.add('ready');
+        statusIcon.textContent = '✅';
+        statusText.textContent = `Ready to analyze (${charCount} chars)`;
+    }
+    
+    checkFormValidity();
+}
+
+// Clear job description
+function clearJobDescription() {
+    const textarea = document.getElementById('job-description');
+    const charCountElement = document.getElementById('char-count');
+    const statusIndicator = document.getElementById('status-indicator');
+    const statusIcon = statusIndicator.querySelector('.status-icon');
+    const statusText = statusIndicator.querySelector('.status-text');
+    
+    textarea.value = '';
+    textarea.className = 'job-textarea';
+    charCountElement.textContent = '0';
+    charCountElement.parentElement.className = 'char-counter';
+    
+    statusIndicator.className = 'status-indicator';
+    statusIcon.textContent = '📝';
+    statusText.textContent = 'Ready for input';
+    
+    jobDescription = '';
+    checkFormValidity();
+    showNotification('Job description cleared', 'success');
+    textarea.focus();
+}
+
+// Check if form is valid and enable/disable analyze button
+function checkFormValidity() {
+    const analyzeBtn = document.querySelector('.analyze-btn');
+    const minchars = 1;
+    const isValid = uploadedFile && jobDescription.length >= minchars;
+    
+    analyzeBtn.disabled = !isValid;
+    
+    if (isValid) {
+        analyzeBtn.style.opacity = '1';
+        analyzeBtn.style.cursor = 'pointer';
+    } else {
+        analyzeBtn.style.opacity = '0.7';
+        analyzeBtn.style.cursor = 'not-allowed';
+    }
+}
+
+// Drag and drop functionality
+function setupDragAndDrop() {
+    const uploadArea = document.querySelector('.upload-area');
+    
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    });
+    
+    uploadArea.addEventListener('dragleave', () => {
+        uploadArea.classList.remove('dragover');
+    });
+    
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            const fileInput = document.getElementById('resume-file');
+            fileInput.files = files;
+            handleFileUpload(fileInput);
         }
+    });
+}
 
-        // Enhanced job description input handling
-        function handleTextInput(textarea) {
-            jobDescription = textarea.value.trim();
-            const charCount = textarea.value.length;
-            const charCountElement = document.getElementById('char-count');
-            const charCountContainer = charCountElement.parentElement;
-            const statusIndicator = document.getElementById('status-indicator');
-            const statusIcon = statusIndicator.querySelector('.status-icon');
-            const statusText = statusIndicator.querySelector('.status-text');
+// Show notification with better styling and duration options
+function showNotification(message, type = 'success', duration = 3000) {
+    const notification = document.getElementById('notification');
+    notification.textContent = message;
+    notification.className = `notification ${type}`;
+    notification.classList.add('show');
+    
+    // Add icons based on type
+    let icon = '';
+    switch(type) {
+        case 'success': icon = '✅ '; break;
+        case 'error': icon = '❌ '; break;
+        case 'warning': icon = '⚠️ '; break;
+        case 'info': icon = 'ℹ️ '; break;
+        default: icon = '';
+    }
+    notification.textContent = icon + message;
+    
+    setTimeout(() => {
+        notification.classList.remove('show');
+    }, duration);
+}
 
-            // Update character count
-            charCountElement.textContent = charCount.toLocaleString();
-            
-            // Update character count styling
-            charCountContainer.className = 'char-counter';
-            if (charCount > 5000) {
-                charCountContainer.classList.add('error');
-            } else if (charCount > 3000) {
-                charCountContainer.classList.add('warning');
-            }
+// Main analyze resume function - saves file and stores filepath without popup
+function analyzeResume() {
+    if (!uploadedFile || !jobDescription) {
+        showNotification('Please upload a resume and enter job description', 'error');
+        return;
+    }
 
-            // Update textarea styling and status
-            textarea.className = 'job-textarea';
-            statusIndicator.className = 'status-indicator';
-            
-            if (charCount === 0) {
-                statusIcon.textContent = '📝';
-                statusText.textContent = 'Ready for input';
-            } else if (charCount < 50) {
-                textarea.classList.add('has-content');
-                statusIndicator.classList.add('typing');
-                statusIcon.textContent = '✏️';
-                statusText.textContent = 'Keep typing...';
-            } else {
-                textarea.classList.add('has-content');
-                statusIndicator.classList.add('ready');
-                statusIcon.textContent = '✅';
-                statusText.textContent = `Ready to analyze (${charCount} chars)`;
-            }
-            
-            checkFormValidity();
+    const analyzeBtn = document.querySelector('.analyze-btn');
+    const btnText = analyzeBtn.querySelector('.btn-text');
+    const loading = analyzeBtn.querySelector('.loading');
+    
+    // Show loading state
+    analyzeBtn.disabled = true;
+    btnText.style.display = 'none';
+    loading.classList.add('active');
+    
+    console.log('Starting file analysis...');
+    console.log('File:', uploadedFile.name, 'Size:', uploadedFile.size, 'Type:', uploadedFile.type);
+    console.log('Job description length:', jobDescription.length);
+    
+    // Read the file as base64
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+        // Log the raw result for debugging
+        console.log('Raw FileReader result:', e.target.result.substring(0, 100) + '...');
+        console.log('Full result length:', e.target.result.length);
+        
+        // Ensure we have valid base64 data
+        let base64Content = e.target.result;
+        
+        // Validate that we have a data URL
+        if (!base64Content.startsWith('data:')) {
+            console.error('Invalid file data - not a data URL');
+            resetButtonState();
+            showNotification('Error: Invalid file data format', 'error');
+            return;
         }
-
-        // Clear job description
-        function clearJobDescription() {
-            const textarea = document.getElementById('job-description');
-            const charCountElement = document.getElementById('char-count');
-            const statusIndicator = document.getElementById('status-indicator');
-            const statusIcon = statusIndicator.querySelector('.status-icon');
-            const statusText = statusIndicator.querySelector('.status-text');
-            
-            textarea.value = '';
-            textarea.className = 'job-textarea';
-            charCountElement.textContent = '0';
-            charCountElement.parentElement.className = 'char-counter';
-            
-            statusIndicator.className = 'status-indicator';
-            statusIcon.textContent = '📝';
-            statusText.textContent = 'Ready for input';
-            
-            jobDescription = '';
-            checkFormValidity();
-            showNotification('Job description cleared', 'success');
-            textarea.focus();
+        
+        const fileData = {
+            name: uploadedFile.name,
+            type: uploadedFile.type,
+            size: uploadedFile.size,
+            content: base64Content // base64 encoded content with data URL prefix
+        };
+        
+        console.log('File read successfully:');
+        console.log('- Name:', fileData.name);
+        console.log('- Type:', fileData.type);
+        console.log('- Size:', fileData.size);
+        console.log('- Content length:', fileData.content.length);
+        console.log('- Content starts with:', fileData.content.substring(0, 50));
+        
+        // Validate file data before sending
+        if (!fileData.content || fileData.content.length < 100) {
+            console.error('File content is too short or empty');
+            resetButtonState();
+            showNotification('Error: File appears to be empty or corrupted', 'error');
+            return;
         }
-
-        // Check if form is valid and enable/disable analyze button
-        function checkFormValidity() {
-            const analyzeBtn = document.querySelector('.analyze-btn');
-            const minchars = 1;
-            const isValid = uploadedFile && jobDescription.length > minchars;
-            
-            analyzeBtn.disabled = !isValid;
-            
-            if (isValid) {
-                analyzeBtn.style.opacity = '1';
-                analyzeBtn.style.cursor = 'pointer';
-            } else {
-                analyzeBtn.style.opacity = '0.7';
-                analyzeBtn.style.cursor = 'not-allowed';
-            }
-        }
-
-        // Drag and drop functionality
-        function setupDragAndDrop() {
-            const uploadArea = document.querySelector('.upload-area');
-            
-            uploadArea.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                uploadArea.classList.add('dragover');
+        
+        // Try to send data to Python backend
+        if (typeof pywebview !== 'undefined' && pywebview.api) {
+            console.log('Python API available, calling analyzeResume...');
+            console.log('Sending file data:', {
+                name: fileData.name,
+                type: fileData.type,
+                size: fileData.size,
+                contentLength: fileData.content.length
             });
             
-            uploadArea.addEventListener('dragleave', () => {
-                uploadArea.classList.remove('dragover');
-            });
+            pywebview.api.analyzeResume(fileData, jobDescription)
+                .then(response => {
+                    console.log('Python API response:', response);
+                    
+                    try {
+                        const result = JSON.parse(response);
+                        
+                        // Hide loading state
+                        resetButtonState();
+                        
+                        if (result.status === 'success') {
+                            // Success - file saved and analysis completed
+                            const data = result.data;
+                            const savedPath = data.savedFilePath || 'Unknown path';
+                            const fileName = data.fileName || uploadedFile.name;
+                            const fileExists = data.savedFileExists;
+                            
+                            console.log('Analysis successful!');
+                            console.log('- File saved at:', savedPath);
+                            console.log('- File exists:', fileExists);
+                            console.log('- Analysis score:', data.overallScore);
+                            
+                            // Show success notification with file path
+                            showNotification(
+                                `File "${fileName}" saved successfully! Analysis complete (Score: ${data.overallScore}%)`,
+                                'success',
+                                5000
+                            );
+                            
+                            // Log detailed results for debugging
+                            console.log('Detailed results:', {
+                                fileName: data.fileName,
+                                savedPath: savedPath,
+                                fileSize: data.fileSize,
+                                score: data.overallScore,
+                                matchedSkills: data.matchedSkills,
+                                missingSkills: data.missingSkills,
+                                recommendations: data.recommendations,
+                                timestamp: data.analysisTimestamp
+                            });
+                            
+                            // Optionally reset form after successful analysis
+                            setTimeout(() => {
+                                if (confirm('Analysis complete! Would you like to analyze another resume?')) {
+                                    resetForm();
+                                }
+                            }, 2000);
+                            
+                        } else {
+                            console.error('Analysis failed:', result.message);
+                            showNotification('Analysis failed: ' + result.message, 'error', 5000);
+                        }
+                        
+                    } catch (parseError) {
+                        console.error('Error parsing Python API response:', parseError);
+                        showNotification('Error processing analysis results', 'error');
+                        resetButtonState();
+                    }
+                })
+                .catch(error => {
+                    console.error('Python API Error:', error);
+                    showNotification('Error connecting to analysis engine', 'error');
+                    resetButtonState();
+                });
+        } else {
+            console.warn('Python API not available, running in demo mode');
             
-            uploadArea.addEventListener('drop', (e) => {
-                e.preventDefault();
-                uploadArea.classList.remove('dragover');
-                
-                const files = e.dataTransfer.files;
-                if (files.length > 0) {
-                    const fileInput = document.getElementById('resume-file');
-                    fileInput.files = files;
-                    handleFileUpload(fileInput);
-                }
-            });
-        }
-
-        // Show notification
-        function showNotification(message, type = 'success') {
-            const notification = document.getElementById('notification');
-            notification.textContent = message;
-            notification.className = `notification ${type}`;
-            notification.classList.add('show');
+            // Demo mode - simulate file saving
+            const demoPath = `./uploads/${uploadedFile.name}`;
             
             setTimeout(() => {
-                notification.classList.remove('show');
-            }, 3000);
-        }
-
-        // Integrated analyze resume function with Python backend
-        function analyzeResume() {
-            if (!uploadedFile || !jobDescription) {
-                showNotification('Please upload a resume and enter job description', 'error');
-                return;
-            }
-
-            const analyzeBtn = document.querySelector('.analyze-btn');
-            const btnText = analyzeBtn.querySelector('.btn-text');
-            const loading = analyzeBtn.querySelector('.loading');
-            
-            // Show loading state
-            analyzeBtn.disabled = true;
-            btnText.style.display = 'none';
-            loading.classList.add('active');
-            
-            // Read the file as base64
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const fileData = {
-                    name: uploadedFile.name,
-                    type: uploadedFile.type,
-                    size: uploadedFile.size,
-                    content: e.target.result // base64 encoded content
-                };
+                resetButtonState();
+                showNotification(
+                    `Demo Mode: File would be saved as "${uploadedFile.name}" in uploads folder`,
+                    'info',
+                    5000
+                );
                 
-                // Try to send data to Python backend first
-                try {
-                    // Check if pywebview API is available
-                    if (typeof pywebview !== 'undefined' && pywebview.api) {
-                        // Call the Python API to save the file and job description
-                        pywebview.api.analyzeResume(fileData, jobDescription)
-                            .then(response => {
-                                const result = JSON.parse(response);
-                                
-                                // Hide loading state
-                                btnText.style.display = 'block';
-                                loading.classList.remove('active');
-                                analyzeBtn.disabled = false;
-                                
-                                if (result.status === 'success') {
-                                    // Show results from Python backend
-                                     showResults(result.data);
-                                     showNotification('✓ Analysis completed successfully!', 'success');
-                                } else {
-                                    showNotification('Error: ' + result.message, 'error');
-                                }
-                            })
-                            .catch(error => {
-                                console.error('Python API Error:', error);
-                                handleApiError();
-                            });
-                    } else {
-                        // pywebview not available, use fallback
-                        handleApiError();
-                    }
-                } catch (error) {
-                    console.error('Error calling Python API:', error);
-                    handleApiError();
-                }
-                
-                // Fallback function for when Python API is not available
-                function handleApiError() {
-                    // Hide loading state
-                    btnText.style.display = 'block';
-                    loading.classList.remove('active');
-                    analyzeBtn.disabled = false;
-                    
-                    // Show mock results as fallback
-                    const results = generateMockResults();
-                    showResults(results);
-                    showNotification('Using demo results (Python backend not connected)', 'warning');
-                }
-            };
-            
-            reader.onerror = function() {
-                // Hide loading state
-                btnText.style.display = 'block';
-                loading.classList.remove('active');
-                analyzeBtn.disabled = false;
-                
-                showNotification('Error reading file', 'error');
-            };
-            
-            reader.readAsDataURL(uploadedFile);
-        }
-
-        // Generate mock analysis results for fallback
-        function generateMockResults() {
-            const skills = ['Python', 'Django', 'PostgreSQL', 'Docker', 'AWS', 'Git', 'REST APIs'];
-            const matchedSkills = skills.slice(0, Math.floor(Math.random() * 3) + 4);
-            const missingSkills = skills.filter(skill => !matchedSkills.includes(skill));
-            const score = Math.floor(Math.random() * 30) + 70; // 70-100
-            
-            return {
-                fileName: uploadedFile.name,
-                overallScore: score,
-                matchedSkills,
-                missingSkills,
-                experience: `${Math.floor(Math.random() * 5) + 3} years`,
-                education: 'Bachelor\'s in Computer Science',
-                recommendations: [
-                    'Strong technical background in Python development',
-                    'Good match for senior-level positions',
-                    'Consider additional cloud training for AWS'
-                ]
-            };
-        }
-
-        // Show results in modal
-        function showResults(results) {
-            const modal = document.getElementById('results-modal');
-            const modalResults = document.getElementById('modal-results');
-            
-            const scoreColor = results.overallScore >= 80 ? 'terminal-success' : 
-                              results.overallScore >= 60 ? 'terminal-warning' : 'terminal-error';
-            
-            modalResults.innerHTML = `
-                <div class="terminal" style="margin: 0;">
-                    <div class="terminal-dots">
-                        <div class="terminal-dot"></div>
-                        <div class="terminal-dot"></div>
-                        <div class="terminal-dot"></div>
-                    </div>
-                    <div class="terminal-content">
-                        <div class="terminal-header">🐍 PyResume AI Analysis Results</div>
-                        <div>════════════════════════════════════════</div>
-                        <br>
-                        <div><span class="terminal-success">✓</span> <strong>File:</strong> ${results.fileName}</div>
-                        <div><span class="terminal-info">📊</span> <strong>Overall Match Score:</strong> <span class="${scoreColor}">${results.overallScore}%</span></div>
-                        <br>
-                        <div><span class="terminal-success">🎯</span> <strong>Matched Skills:</strong></div>
-                        ${results.matchedSkills.map(skill => `<div>  • ${skill}: <span class="terminal-success">✓ MATCH</span></div>`).join('')}
-                        <br>
-                        ${results.missingSkills.length > 0 ? `
-                        <div><span class="terminal-warning">⚠️</span> <strong>Missing Skills:</strong></div>
-                        ${results.missingSkills.map(skill => `<div>  • ${skill}: <span class="terminal-error">✗ MISSING</span></div>`).join('')}
-                        <br>
-                        ` : ''}
-                        <div><span class="terminal-info">⏱️</span> <strong>Experience:</strong> ${results.experience}</div>
-                        <div><span class="terminal-info">🎓</span> <strong>Education:</strong> ${results.education}</div>
-                        <br>
-                        <div><span class="terminal-info">💡</span> <strong>Recommendations:</strong></div>
-                        ${results.recommendations.map(rec => `<div>  • ${rec}</div>`).join('')}
-                        <br>
-                        <div>════════════════════════════════════════</div>
-                        <div><span class="terminal-success">🎉 Analysis completed successfully</span></div>
-                    </div>
-                </div>
-            `;
-            
-            modal.classList.add('show');
-        }
-
-        // Close modal
-        function closeModal() {
-            const modal = document.getElementById('results-modal');
-            modal.classList.remove('show');
-        }
-
-        // Close modal when clicking outside
-        document.getElementById('results-modal').addEventListener('click', (e) => {
-            if (e.target === e.currentTarget) {
-                closeModal();
-            }
-        });
-
-        // Keyboard shortcuts
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                closeModal();
-            }
-        });
-
-        // Initialize on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            loadTheme();
-            setupDragAndDrop();
-            checkFormValidity();
-            
-            // Add some interactive polish
-            const cards = document.querySelectorAll('.info-card, .hero-feature, .process-step, .feature-item');
-            cards.forEach(card => {
-                card.addEventListener('mouseenter', function() {
-                    this.style.transform = this.style.transform || '';
+                console.log('Demo mode results:', {
+                    fileName: uploadedFile.name,
+                    wouldBeSavedAt: demoPath,
+                    fileSize: uploadedFile.size,
+                    jobDescriptionLength: jobDescription.length
                 });
-            });
-        });
+            }, 1500);
+        }
+    };
+    
+    reader.onerror = function(error) {
+        console.error('File reading error:', error);
+        resetButtonState();
+        showNotification('Error reading file', 'error');
+    };
+    
+    // Start reading the file
+    reader.readAsDataURL(uploadedFile);
+    
+    // Helper function to reset button state
+    function resetButtonState() {
+        btnText.style.display = 'block';
+        loading.classList.remove('active');
+        analyzeBtn.disabled = false;
+    }
+}
 
-        // Add smooth scrolling for better UX
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
-                }
+// Function to reset the form after successful processing
+function resetForm() {
+    // Reset file upload
+    const fileInput = document.getElementById('resume-file');
+    const uploadArea = fileInput.parentElement;
+    const uploadTitle = uploadArea.querySelector('.upload-title');
+    const uploadDesc = uploadArea.querySelector('.upload-desc');
+    
+    fileInput.value = '';
+    uploadedFile = null;
+    uploadArea.classList.remove('file-uploaded');
+    uploadTitle.textContent = '📁 Choose Resume File';
+    uploadDesc.textContent = 'Drag & drop your resume here or click to browse';
+    
+    // Reset job description
+    clearJobDescription();
+    
+    // Update form validity
+    checkFormValidity();
+    
+    showNotification('Form reset - ready for next analysis', 'success');
+}
+
+// Test file reading function for debugging
+function testFileReading() {
+    if (!uploadedFile) {
+        console.log('No file uploaded for testing');
+        return;
+    }
+    
+    console.log('Testing file reading...');
+    console.log('Original file:', uploadedFile.name, uploadedFile.size, uploadedFile.type);
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        console.log('Test read result:');
+        console.log('- Length:', e.target.result.length);
+        console.log('- Starts with:', e.target.result.substring(0, 100));
+        console.log('- Has data URL prefix:', e.target.result.startsWith('data:'));
+        
+        // Test base64 extraction
+        if (e.target.result.includes(',')) {
+            const base64Part = e.target.result.split(',')[1];
+            console.log('- Base64 part length:', base64Part.length);
+            console.log('- Base64 starts with:', base64Part.substring(0, 50));
+        }
+    };
+    reader.onerror = function(error) {
+        console.error('Test read error:', error);
+    };
+    reader.readAsDataURL(uploadedFile);
+}
+
+// Get saved file information (utility function for debugging)
+function getSavedFileInfo() {
+    if (typeof pywebview !== 'undefined' && pywebview.api) {
+        pywebview.api.get_saved_file_path()
+            .then(response => {
+                const result = JSON.parse(response);
+                console.log('Saved file info:', result);
+            })
+            .catch(error => {
+                console.error('Error getting saved file info:', error);
             });
+    }
+}
+
+// List directory files (utility function for debugging)
+function listDirectoryFiles() {
+    if (typeof pywebview !== 'undefined' && pywebview.api) {
+        pywebview.api.list_directory_files()
+            .then(response => {
+                const result = JSON.parse(response);
+                console.log('Directory files:', result);
+            })
+            .catch(error => {
+                console.error('Error listing directory files:', error);
+            });
+    }
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+    // Ctrl/Cmd + Enter to analyze
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        const analyzeBtn = document.querySelector('.analyze-btn');
+        if (!analyzeBtn.disabled) {
+            analyzeResume();
+        }
+    }
+    
+    // Ctrl/Cmd + R to reset form
+    if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+        e.preventDefault();
+        resetForm();
+    }
+});
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Resume Analyzer initialized');
+    
+    loadTheme();
+    setupDragAndDrop();
+    checkFormValidity();
+    
+    // Add some interactive polish
+    const cards = document.querySelectorAll('.info-card, .hero-feature, .process-step, .feature-item');
+    cards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = this.style.transform || '';
         });
+    });
+    
+    // Add debug info to console
+    console.log('Debug functions available:');
+    console.log('- getSavedFileInfo(): Get information about saved files');
+    console.log('- listDirectoryFiles(): List all files in uploads directory');
+    console.log('- resetForm(): Reset the form to initial state');
+    console.log('- testFileReading(): Test file reading functionality');
+    
+    // Auto-test file reading when a file is uploaded (for debugging)
+    const fileInput = document.getElementById('resume-file');
+    if (fileInput) {
+        fileInput.addEventListener('change', function() {
+            if (this.files[0]) {
+                setTimeout(() => {
+                    console.log('Auto-testing file reading after upload...');
+                    testFileReading();
+                }, 100);
+            }
+        });
+    }
+});
+
+// Add smooth scrolling for better UX
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+            target.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }
+    });
+});
     </script>
 </body>
 </html>

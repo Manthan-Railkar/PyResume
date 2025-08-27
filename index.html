@@ -1440,7 +1440,8 @@ Responsibilities:
         // Check if form is valid and enable/disable analyze button
         function checkFormValidity() {
             const analyzeBtn = document.querySelector('.analyze-btn');
-            const isValid = uploadedFile && jobDescription.length > 50;
+            const minchars = 1;
+            const isValid = uploadedFile && jobDescription.length > minchars;
             
             analyzeBtn.disabled = !isValid;
             
@@ -1533,8 +1534,8 @@ Responsibilities:
                                 
                                 if (result.status === 'success') {
                                     // Show results from Python backend
-                                    showResults(result.data);
-                                    showNotification('✓ Analysis completed successfully!', 'success');
+                                     showResults(result.data);
+                                     showNotification('✓ Analysis completed successfully!', 'success');
                                 } else {
                                     showNotification('Error: ' + result.message, 'error');
                                 }

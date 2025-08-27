@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PyResume AI - Intelligent Resume Analysis Platform</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PyResume AI - Intelligent Resume Analysis Platform</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         :root {
             --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -516,23 +523,25 @@
             transition: left 0.5s ease;
         }
 
-        .analyze-btn:hover {
+        .analyze-btn:not(:disabled):hover {
             transform: translateY(-3px);
             box-shadow: 0 15px 40px rgba(102, 126, 234, 0.4);
         }
 
-        .analyze-btn:hover::before {
+        .analyze-btn:not(:disabled):hover::before {
             left: 100%;
         }
 
         .analyze-btn:disabled {
-            opacity: 0.7;
+            opacity: 0.5;
             cursor: not-allowed;
             transform: none;
+            background: #94a3b8;
         }
 
         .analyze-btn:disabled:hover {
-            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 10px 30px rgba(148, 163, 184, 0.3);
+            transform: none;
         }
 
         /* Loading State */
@@ -1055,7 +1064,7 @@
             outline: 2px solid #4facfe;
             outline-offset: 2px;
         }
-    </style>
+    </style> 
 </head>
 <body data-theme="light">
     <!-- Navigation Bar -->
